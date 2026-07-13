@@ -7,7 +7,7 @@
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-Compatible-blue)](https://github.com/anthropics/skills)
 [![skills.sh](https://img.shields.io/badge/skills.sh-installable-brightgreen)](https://skills.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.4-blue)]()
+[![Version](https://img.shields.io/badge/version-3.7-blue)]()
 [![Modes](https://img.shields.io/badge/modes-6-orange)]()
 [![Checkpoints](https://img.shields.io/badge/checkpoints-5-red)]()
 
@@ -47,7 +47,7 @@
 
 ## 它会交付什么
 
-- **定制简历 (Markdown + HTML)** — 瑞士国际主义风格模板，浏览器 Ctrl+P 直接导出 PDF，零外部依赖
+- **定制简历 (Markdown + HTML + PDF)** — 瑞士国际主义风格模板；Agent 自动产出字体子集化 PDF（A4 单页、<500KB），浏览器打开 HTML 复核排版为可选，零外部依赖
 - **审计报告** — 合规检查 + 反向面试审计 + 历史版本对比，每条 bullet 可追溯
 - **面试准备包** — 每条显著改动对应 STAR 应答要点 + 面经高频追问 + 风险提示
 
@@ -60,6 +60,8 @@ npx skills add dmlin7777777/baogong-skill
 ```
 
 > 安装后对 Agent 说：「帮我针对这个 JD 调简历」，然后粘贴 JD 文本或链接。
+
+> 包公遵循 Agent Skills 标准，兼容 Claude Code / Codex / Cursor / OpenClaw / 任意可粘贴 SKILL.md 的 LLM 运行时（runtime-neutral）。
 
 <details>
 <summary>其他安装方式</summary>
@@ -78,7 +80,10 @@ git clone https://github.com/dmlin7777777/baogong-skill.git ~/.claude/skills/bao
 ```
 python-docx>=0.8.11    # .docx 解析
 pdfplumber>=0.10.0     # .pdf 解析
+playwright>=1.40       # 可选：PDF 自动产出（无头 Chromium 渲染）
+pymupdf>=1.24          # 可选：PDF 字体子集化压缩（<500KB）
 ```
+（若不想装这两条，PDF 自动降级为手动 Ctrl+P，并提示字体膨胀风险。）
 
 </details>
 
@@ -181,7 +186,7 @@ Agent: "🔴 我无法帮你编造简历内容。原因：
 - **不是自动驾驶** — 5 个强制检查点需要你逐一确认，每份简历大约需要 15-30 分钟的交互。这是设计如此：跳过确认的简历面试时答不上来
 - **依赖你的真实经历** — 包公只做提炼，不做扩展。如果你的经历确实不匹配 JD，包公会诚实告诉你"这条不值得凑"，而不是帮你硬写
 - **面经搜索依赖网络** — Phase 1 的联网搜索在小公司/冷门岗位可能找不到面经，此时会降级到通用面试模板，并标注来源
-- **PDF 需手动导出** — HTML 模板浏览器直接打开，Ctrl+P 保存 PDF。不在管线内自动生成 PDF
+- **PDF 自动产出** — 交付时 Agent 调用 `scripts/gen_resume_pdf.py`（Playwright 无头渲染 + PyMuPDF 字体子集化）生成 <500KB 的 A4 PDF；若环境无 playwright/pymupdf 则降级为手动 Ctrl+P 并提示字体膨胀风险
 
 ---
 
@@ -247,7 +252,8 @@ baogong-skill/
 ├── scripts/
 │   ├── jd_parser.py                  # JD 结构化提取
 │   ├── diff_audit.py                 # 变更差异审计
-│   └── ats_checker.py                # ATS 兼容性检查
+│   ├── ats_checker.py                # ATS 兼容性检查
+│   └── gen_resume_pdf.py             # HTML→PDF（Playwright+PyMuPDF，字体子集化 <500KB）
 ├── sessions/                         # 运行时快照
 └── history/                          # 归档（简历 + 审计 + 面试准备）
 ```

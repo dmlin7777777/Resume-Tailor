@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.7] - 2026-07-13
+
+### Added
+- **Auto-PDF delivery pipeline**: `scripts/gen_resume_pdf.py` renders the tailored HTML via headless Playwright Chromium, then subsets fonts + compresses with PyMuPDF → A4 single-page PDF <500KB. Replaces the "browser Ctrl+P" manual step that embedded the full TNR font (~600KB) and bloated one-page resumes to 900KB+
+- **Anti-pattern A9**: forbid delivering HTML and expecting the user to Ctrl+P (font-bloat risk); must use the subsetting pipeline
+- **Updated A8**: single-page self-check now pairs density selection (Step 4d-5b) with Agent-auto PDF generation (Step 4d-5c)
+
+### Changed
+- SKILL.md version 3.5 → 3.7; README/README.en version badges + PDF sections synced to the new auto-PDF discipline
+- Rendering Pipeline diagram + output-priority table now list PDF as a primary deliverable (was "user-side, not in pipeline")
+
 ## [3.4] - 2026-06-15
 
 ### Added
