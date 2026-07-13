@@ -1,7 +1,7 @@
 ---
 name: baogong
 description: "求职教练，不是润色器。针对 JD 交互式定制简历，编造阻断门确保每条经历经得起面试追问。HTML + Markdown 双交付。"
-version: "3.7"
+version: "3.8"
 required_permissions:
   - Read    # 读取源简历、故事库、JD 文本
   - Write   # 写入定制后简历、snapshot、history/
@@ -15,6 +15,25 @@ required_permissions:
 **Pseudo Multi-Agent + Blackboard Architecture**
 
 Analyze a job description and tailor the source resume to match, using isolated expert nodes for writing and auditing.
+
+
+## 📖 Progressive Loading Protocol（分段加载协议）
+
+**本文件只保留路由、门控和铁律。各阶段详细执行指令在 `references/` 中——进入对应阶段时必读，未进入不预读。**
+
+| 执行时机 | 必读文件 |
+|---|---|
+| 触发 Init-A / Init-B | `references/onboarding_init.md` |
+| 进入 Scenario C / D、Mode A2、Mode B | `references/modes_playbook.md` |
+| 进入 Phase 1 / Phase 2 | `references/phase_1_2_intelligence.md` |
+| 进入 Phase 3（CP1-CP4） | `references/phase_3_interaction.md` + `references/interaction_checkpoints.md` |
+| 进入 Phase 4a（Writer 出稿） | `references/writer_guide.md` + `references/formatting_rules.md` |
+| 进入 Phase 4b-4f（Auditor + 交付） | `references/phase_4_delivery.md` + `references/auditor_guide.md` |
+
+**🔴 规则**：
+1. 进入阶段前未读对应文件 → 不得开始执行该阶段
+2. 只读当前阶段的文件——一次性预读全部 references 违反本协议（上下文膨胀）
+3. 本文件中的 🔴 STOP / 🛑 CHECKPOINT / Anti-Patterns 全程有效，不依赖 references
 
 ## Trigger Phrases
 
@@ -79,133 +98,14 @@ Analyze a job description and tailor the source resume to match, using isolated 
 
 ---
 
-### Init-A：创建 Master 简历（首次使用）
 
-**目标**：从用户已有的任意格式简历（.docx/.pdf/.txt/粘贴文字），生成结构化 `resume_master.md`。
+### Init-A / Init-B（详细流程 → `references/onboarding_init.md`）
 
-**流程**：
+- **Init-A（创建 Master 简历）**：从任意格式简历生成结构化 `resume_master.md`。🔴 STOP：结构化结果必须用户确认后才写入；🔴 严禁在此阶段修改数字或添加原文没有的描述。
+- **Init-B（创建故事库）**：引导录入 STAR + 量化数据 + 追问准备，生成 `project-story-library.md`。🔴 STOP：预览确认后才写入；🔴 严禁推断填充用户没提供的数字。
+- **Mode A 故事库接入（CP3 量化备援）**：优先级 = 故事库已有数字 > 用户对话提供 > 追问 2 轮无果写过程描述（并建议顺便录入故事库）。
 
-```
-Step A1：获取原始简历
-  输出：「我没有找到你的简历文件，需要先创建一份 Master 简历作为所有后续定制的基础。
-         请选择：
-         (1) 粘贴你现有简历的文字内容
-         (2) 提供简历文件路径（.docx / .pdf）
-         (3) 从头开始，我来引导你填写」
-  → 等待用户回复
-
-Step A2：解析原始内容
-  - 如果是文件路径 → 用 python-docx 或 pdfplumber 读取全文
-  - 如果是粘贴文字 → 直接处理
-  - 如果从头填写 → 进入 Step A2b（引导式问卷，见下）
-
-Step A3：结构化提取 → 输出 resume_master.md（见模板）
-  - 用标准节段：个人信息 / 教育 / 工作经历 / 项目经历 / 技能 / 证书
-  - 每段经历必须包含：公司名、职位、时间区间、bullet 列表（暂时保留原始表述，不升级）
-  - 时间格式统一：YYYY.MM – YYYY.MM（或"至今"）
-  - 🔴 严禁：在此阶段修改任何数字或添加任何原文没有的描述
-
-Step A4：确认 + 存档
-  - 🔴 STOP CP：展示结构化后的 resume_master.md 给用户确认
-  - 用户确认 → 写入 {workspace}/resume_master.md
-  - 在 .workbuddy/memory/MEMORY.md 中记录 resume_path 字段
-  - 输出：「Master 简历已创建并保存到 {path}，后续所有简历定制都以此为基础。」
-```
-
-**Step A2b（从头填写引导问卷）**：
-
-每次只问 1 个问题，等用户回答后继续，共 5 轮：
-
-| 轮次 | 问题 |
-|------|------|
-| 1 | 「你的姓名、邮箱、电话、当前所在城市？」 |
-| 2 | 「最高学历：学校、专业、学位、时间？还有其他学历吗？」 |
-| 3 | 「最近一段工作/实习经历：公司、职位、时间、主要做了什么（1-3 句话）？」|
-| 4 | 「还有其他工作/实习/项目经历吗？请逐条描述（可以多条）。」 |
-| 5 | 「技能（如编程语言、工具、软件）？证书（如英语成绩、专业资格）？」 |
-
-收集完成后进入 Step A3。
-
----
-
-### Init-B：创建故事库（首次 Mode B 使用，或 CP3 量化追问失败时）
-
-**目标**：把每段经历的 STAR 细节、量化数据、追问准备系统化地记录下来，形成简历写作的「唯一事实来源」。
-
-**何时触发**：
-- Mode B 入口检测到故事库不存在
-- Mode A / Mode B 的 CP3 量化追问 2 轮后用户无法给出数字（主动建议创建，而非强制）
-
-**流程**：
-
-```
-Step B1：说明价值
-  输出：「故事库是让简历里的每个数字都能在面试中答出来的保障。
-         我来引导你把每段经历的细节录入，大约需要 10-20 分钟，
-         建好后所有简历版本都从这里取数据。准备好了告诉我。」
-  → 等待用户确认
-
-Step B2：逐段录入（每段经历循环一次）
-  依次对每段工作/实习/项目经历：
-
-  问题 B2-1：「[经历名称] 的核心成果是什么？有没有具体数字？
-              （如：将 X 从 A 提升到 B，节省了 C 小时，影响了 D 个用户）」
-  问题 B2-2：「如果没有数字，当时的规模/范围是什么？
-              （如：覆盖了几个业务线？团队几个人？项目持续多久？）」
-  问题 B2-3：「面试官最可能追问的 1 个问题是什么？你会怎么回答？」
-
-Step B3：生成故事库文件（见模板）
-  - 每个经历 = 一个 ## 节，包含：STAR 格式 + 量化数据 + 追问准备
-  - 🔴 严禁：推断或填充用户没有提供的数字
-
-Step B4：确认 + 存档
-  - 🔴 STOP CP：给用户预览故事库，确认无误后写入文件
-  - 写入 {workspace}/project-story-library.md
-  - 在 .workbuddy/memory/MEMORY.md 中记录 story_library_path 字段
-```
-
-**故事库文件模板**：
-
-```markdown
-# 项目故事库
-
-## 经历 1：[公司] · [职位] · [时间区间]
-
-> 技术栈/工具：[列出主要工具]
-> 一句话概括：[核心动作 + 量化结果]
-
-### 核心成果（量化）
-- [数字/指标 1]：来源：[用户原话]
-- [数字/指标 2]：来源：[用户原话]
-- 暂无量化数据 → 规模：[范围描述]
-
-### STAR
-- **S（背景）**：[情境]
-- **T（任务）**：[目标]
-- **A（行动）**：[具体做了什么]
-- **R（结果）**：[量化结果或过程描述]
-
-### 面试追问准备
-- Q：[最可能被追问的问题]
-- A：[回答要点]
-
----
-```
-
----
-
-### Mode A 的故事库接入（CP3 量化备援）
-
-**Mode A 原本只依赖用户回复量化数据，现在补充以下规则：**
-
-在 CP3 量化追问时，**优先顺序**如下：
-
-```
-优先级 1：故事库中已有数字 → 直接使用，标注「来源：故事库」
-优先级 2：用户在对话中提供数字 → 使用，更新到故事库对应条目
-优先级 3：追问 2 轮后用户仍无数字 → 写过程描述，不编造
-                                    → 询问「要不要顺便把这段经历录入故事库，下次就有数据了？」
-```
+🔴 执行 Init 前必读 `references/onboarding_init.md`。
 
 ---
 
@@ -258,53 +158,14 @@ Store the resolved paths in workspace memory. **Never modify the original.**
 
 **Mode A → A2 升级路径**：用户在 Mode A 完成第一份简历后说「还有一个 JD 也帮我做」→ 自动切换到 A2 流程，复用已有事实底稿。
 
+
 ### Scenario C: JD-Only（有 JD 无简历）
 
-用户提供了 JD 但没有简历（`resume_master.md` 不存在且用户未提供任何简历文件）。
-
-**与 Init-A 的区别**：Init-A 是"用户没有格式化简历但有经历可录入"。Scenario C 是"用户先拿到 JD，想知道要准备什么，再决定怎么写简历"。
-
-**Flow**:
-
-```
-Step C1: JD 需求分析（复用 Phase 1 Scout）
-  - 提取 JD 的 hard/soft requirements、capability clusters、ATS keywords
-  - 执行 S1 面经搜索（如果公司已知）
-  - 产出「岗位需求清单」：每项需求标注优先级（必须/加分/锦上添花）
-
-Step C2: 能力缺口预判
-  - 输出：「以下是这个岗位的核心要求，你可以对照看看自己有哪些：」
-  - 逐项列出需求，让用户标注 ✅有 / ❌没有 / 🤔不确定
-  - 🔴 STOP：等待用户回复
-
-Step C3: 路由决策
-  - 用户标注完成后：
-    ├─ ✅ 命中率 ≥ 50% → 「你的匹配度不错，我们来创建简历。」→ 进入 Init-A，完成后自动进入 Mode A
-    ├─ ✅ 命中率 < 50% → 「这个岗位和你的背景差距较大，建议：(1) 继续做，突出可迁移能力 (2) 换一个更匹配的方向」
-    └─ 用户选择继续 → Init-A → Mode A
-```
+JD 需求分析（复用 Phase 1 Scout）→ 输出岗位需求清单，用户逐项标注 ✅/❌/🤔（🔴 STOP 等待标注）→ 命中率 ≥50% 进 Init-A→Mode A；<50% 诚实告知差距，用户选择继续或换方向。详细流程见 `references/modes_playbook.md`。
 
 ### Scenario D: 信息不足（输入模糊或极度不足）
 
-用户输入过于模糊，无法判断任何 Mode。
-
-**触发条件**：输入 < 20 字 且 不包含 JD/简历/方向关键词。例如："帮我弄一下"、"简历"、"resume"。
-
-**Flow**:
-
-```
-输出：「我需要更多信息来帮你。请告诉我：
-  1. 你有目标岗位的 JD 吗？（有 → 粘贴 JD 文本或链接）
-  2. 你有现成的简历吗？（有 → 提供文件路径或粘贴内容）
-  3. 你想做什么？
-     - 针对特定岗位优化简历 → 需要 JD + 简历
-     - 做个通用方向简历 → 需要简历 + 目标方向
-     - 从头创建简历 → 我来引导你
-     - 分析一个 JD 的要求 → 只需要 JD」
-→ 等待用户回复后重新进入 Mode Detection
-```
-
-**约束**：Scenario D 最多触发一次。用户第二次回复仍然模糊 → 默认进入 Init-A（从头创建简历），不再追问。
+触发：输入 < 20 字且无 JD/简历/方向关键词。输出信息收集问卷 → 等用户回复后重新进入 Mode Detection。**最多触发一次**，第二次仍模糊 → 默认进 Init-A，不再追问。问卷模板见 `references/modes_playbook.md`。
 
 ### Scenario E: 造假阻断（用户要求编造内容）
 
@@ -364,60 +225,20 @@ Full 4-phase pipeline. This is the primary mode.
 
 **Flow**: Phase 1 → Phase 2 → Phase 3 → Phase 4 (see Workflow Pipeline below)
 
+
 ### Mode A2: Multi-JD Batch（多 JD 批量定制）
 
-同一份事实底稿（`resume_master.md` + 故事库），针对多个 JD 各生成一份定制简历，最后产出跨 JD 差异对比表。
+同一份事实底稿（`resume_master.md` + 故事库），逐 JD 独立定制，最后产出跨 JD 差异对比表。
 
-**核心原则：共用事实底稿 + 独立版本 + 差异表**
+**Trigger**：用户一次提供 ≥2 份 JD，或 Mode A 完成后追加新 JD（升级路径）。
 
-**Trigger**:
-- 用户一次提供 ≥2 份 JD
-- Mode A 完成后追加新 JD（升级路径）
-
-**Flow**:
-
-```
-Phase A2-0: JD Collection & Naming
-  1. 收集所有 JD（文本/URL/文件），每份 JD 分配标签：JD-A, JD-B, JD-C...
-  2. 展示 JD 摘要表（岗位名 + 公司 + 核心要求 3 条），用户确认无误
-  3. 🔴 STOP：确认 JD 列表完整，后续追加需重新进入此步骤
-
-Phase A2-1: Shared Context（共享层，只做一次）
-  1. 读取 resume_master.md + 故事库（如有）
-  2. 对所有 JD 执行合并式 Scout：提取每份 JD 的 hard/soft requirements
-  3. 产出「能力需求联合矩阵」：行=用户经历，列=各 JD 的需求，交叉格=匹配状态
-  4. 🔴 STOP CP1-A2：展示联合矩阵 → 用户确认经历选取策略
-     - 哪些经历所有 JD 通用
-     - 哪些经历只用于特定 JD
-
-Phase A2-2: Per-JD Tailoring（逐份独立执行）
-  对每份 JD，独立运行 Mode A 的 Phase 2-4：
-  - 独立 session_id：{date}_{company}_{role}
-  - 独立 snapshot.json
-  - 复用 A2-1 的共享选取决策，但允许 per-JD 微调
-  - CP3 量化追问：如用户在 JD-A 中已回答某数字，JD-B 自动复用（标注「来源：JD-A session」）
-  - CP4 措辞：根据各 JD 的 region 独立调整 tone slider
-
-Phase A2-3: Comparison Table（差异对比表）
-  所有 JD 完成后，产出对比表：
-
-  | 维度 | JD-A ({company_a}) | JD-B ({company_b}) |
-  |------|-------|-------|
-  | 匹配度 | 85% | 72% |
-  | 保留经历 | 经历1,2,3 | 经历1,3,4 |
-  | 核心差异 bullet | "数据分析"侧重 | "产品运营"侧重 |
-  | 硬缺口 | 无 | 缺 CPA 证书 |
-  | 推荐投递优先级 | ⭐⭐⭐ | ⭐⭐ |
-  | tone 风格 | 北美-assertive | 东亚-collaborative |
-
-  保存到 history/{date}_multi_jd_comparison.md
-```
+**流程骨架**（详细步骤见 `references/modes_playbook.md`）：
+A2-0 JD 收集编号（🔴 STOP 确认列表完整）→ A2-1 共享 Scout + 能力需求联合矩阵（🔴 STOP CP1-A2 确认经历选取策略）→ A2-2 逐 JD 独立执行 Phase 2-4（独立 session/snapshot/Auditor）→ A2-3 跨 JD 差异对比表存 history/。
 
 **关键约束**：
-- 事实底稿（resume_master.md）全程不可修改——所有 JD 共享同一份源
-- 量化数据跨 JD 复用：用户在 JD-A 确认的数字，JD-B 自动继承，避免重复追问
-- 每份 JD 的 Auditor 独立运行——不能因为 JD-A 审计通过就跳过 JD-B 的审计
-- Phase A2-2 中的 per-JD tailoring 可以并行执行（如果 Agent 支持）
+- 事实底稿全程不可修改——所有 JD 共享同一份源
+- 量化数据跨 JD 复用（JD-A 确认的数字 JD-B 自动继承并标注来源），但状态降级为 `[?]` 需重新确认
+- 每份 JD 的 Auditor 独立运行——不能因为 JD-A 审计通过就跳过 JD-B
 
 ---
 
@@ -431,26 +252,9 @@ Simplified pipeline when no specific JD is available. Builds a role-oriented res
 - "做个通用版简历" / "make a general resume"
 - "生成XX方向的简历" / "create a role-oriented resume"
 
-**Flow**:
 
-```
-Phase G1: Capability Matching (replaces Phase 1+2)
-  1. Identify target role type from user's description (e.g., 产品/数据/商业分析)
-  2. Read project story library (唯一事实来源) → follow [[#Story Library Protocol]] for token-efficient extraction
-  3. Build capability matching matrix: experience × core role competencies (numbers MUST come from story library)
-  4. Rank experiences by match score
-  5. Present selection recommendation to user (CP1)
-
-Phase G2: Interactive Refinement (= Phase 3, CP1-CP4)
-  **🔴 STOP CP1**: Experience selection → show ranked list → **WAIT for user picks**
-  CP2: Skipped (no JD → no gap analysis)
-  **🔴 STOP CP3**: Quantification audit (Anti-Filler Rule) → **WAIT for user to confirm or provide numbers**
-  **🔴 STOP CP4**: Wording upgrade → show before/after → **WAIT for user approval**
-
-Phase G3: Delivery & Audit (= Phase 4)
-  Same physical isolation audit as Mode A.
-  Additional Auditor check: "Does this bullet claim something not in the story library?"
-```
+**Flow**（详细步骤见 `references/modes_playbook.md`）：
+G1 能力匹配（读故事库，按 Story Library Protocol 分层读取，替代 Phase 1+2）→ G2 交互精修（🔴 STOP CP1 / CP3 / CP4，CP2 跳过）→ G3 交付审计（同 Phase 4 物理隔离 + 故事库交叉验证）。
 
 **Key Differences from Mode A**:
 - No JD → No `jd_facts` layer, no ATS keyword matching, no hard requirement alerts
@@ -465,60 +269,10 @@ Phase G3: Delivery & Audit (= Phase 4)
 
 故事库是 Mode B 的唯一事实来源。不读故事库 = 不能生成 Mode B 简历。
 
-### 故事库结构
-
-故事库是一个结构化 Markdown 文件（通常位于 Obsidian vault 或 workspace 中），结构如下：
-
-```
-## 项目 N：名称
-│
-├── > 技术栈：...           ← 工具关键词
-├── > 一句话概括：...        ← Phase G1 初筛用这个
-├── ### NA：子项目名         ← 每个子项目 = 一段经历
-│   ├── STAR（S/T/A/R）     ← 简历 bullet 的法定来源
-│   ├── 高频追问准备         ← CP3 量化审计 + Phase 4 审计用
-│   └── 方案选择与决策逻辑    ← 面试深度素材
-└── ### 面试高频追问          ← 项目级追问
-```
-
-### 读取策略（Token高效，分 3 层递进）
-
-**Layer 1 — 扫描标题（`grep "^## 项目"`）**
-只读项目编号和名称，不看正文。目的：知道故事库覆盖了哪些经历、缺失哪些。
-
-**Layer 2 — 初筛匹配（读 `> 一句话概括` + `> 技术栈`）**
-对目标岗位相关的项目，只读一行概括。目的：2 秒判断这个项目要不要放进简历。
-
-**Layer 3 — 深读（读完整 STAR + 追问）**
-对确认入选的项目，读完整子条目。目的：提取真实的 bullet 措辞和量化数据。
-
-❌ **禁止**：一次性读取整个故事库 → 浪费 token 且 Agent 注意力衰减。
-
-### Phase G1：能力匹配矩阵
-
-从 Layer 2 的一行概括中提取每段经历的：
-- **核心动作**（做了什么）
-- **量化结果**（数字是什么）
-- **工具**（技术栈关键词）
-
-然后对目标岗位的核心能力（如数据分析师 = SQL/Python/可视化/AB测试/ETL）逐项打分。**匹配矩阵中的数字必须来自故事库，不能编造。**
-
-### Phase G2 CP3：量化审计
-
-故事库中每个子项目的 STAR "R" 行是量化数据的唯一来源。CP3 追问时：
-- 如果故事库已经有数字 → 直接用
-- 如果故事库没数字 → 问用户
-- 如果用户也答不出 → 用过程描述替代，**绝不编造**
-
-### Phase G3 审计：故事库交叉验证
-
-Auditor 逐条检查每个 resume bullet：“这个 bullet 能在故事库中找到对应证据吗？”
-
-| 审计结果 | 含义 | 处理 |
-|---|---|---|
-| ✅ 故事库有对应 STAR | 证据充足 | 通过 |
-| ⚠️ 故事库有对应条目但 bullet 措辞偏离 | 需要修正 | 回退 CP4 重写 |
-| 🔴 故事库无此条目 | 无法面试辩护 | **删除该 bullet** 或让用户手动补故事库 |
+**核心规则**（结构定义、3 层读取策略、G1-G3 执行表见 `references/modes_playbook.md`）：
+- 分 3 层递进读取（标题扫描 → 一行概括初筛 → 入选项深读 STAR）。❌ 禁止一次性读整个故事库
+- 匹配矩阵和简历中的数字必须来自故事库或用户确认，不能编造
+- G3 审计逐条交叉验证：故事库无对应条目的 bullet → 🔴 删除该 bullet 或让用户手动补故事库
 
 ## Five Core Principles
 
@@ -568,7 +322,7 @@ engine.py (Orchestrator)
 
 | Node | File | Responsibility |
 |------|------|---------------|
-| **Context Scout** | `references/writer_guide.md` (Phase 1 section) | JD extraction, market research, role detection, capability clustering |
+| **Context Scout** | `references/phase_1_2_intelligence.md` | JD extraction, market research, role detection, capability clustering |
 | **Resume Architect** | `references/writer_guide.md` (CP1-CP5) | CP1 selection, CP2 gaps, CP3 quantification, CP4 wording upgrade, CP5 draft |
 | **Sincerity Auditor** | `references/auditor_guide.md` | Compliance check, sincerity review, mock interview questions, STAR prep |
 
@@ -591,71 +345,20 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 **Output**: Populated `jd_facts`, `scout_report`, `interview_intel`, capability clusters
 **Tools**: `scripts/jd_parser.py` (with graceful fallback to LLM), `web_search`
 
-1. Accept JD input (URL → fetch, or text directly)
-2. Ask user: company name? target region?
-3. Run **结构化联网搜索**（3 轮分层，每轮产出必须落地到下游节点）：
-
-| 轮次 | 搜索目标 | 关键词模板 | 产出落地点 |
-|------|---------|-----------|-----------|
-| **S1 — 面经/面试经验** | 面试官真实追问、高频考点、岗位隐性要求 | `"{公司} {岗位} 面经"` `"{公司} 面试 经验"` `"{岗位} 面试题"` `"{公司} {岗位} 面试 准备"` | → CP3 量化追问定向 + Phase 4c mock 问题真实性 |
-| **S2 — 团队/文化/真实工作内容** | 部门风格、实际技术栈、JD 写的 vs 实际做的差距 | `"{公司} {部门} 工作体验"` `"{公司} 技术栈"` `"在 {公司} 做 {岗位} 是怎样体验"` | → Phase 2 技能匹配权重 + CP4 语气 slider 校准 |
-| **S3 — 公司动态/业务重点** | 财报方向、新产品线、组织架构变动 | `"{公司} 202X 业务 重点"` `"{公司} 组织架构 调整"` `"{公司} 财报 分析"` | → `risk_warnings`（业务收缩部门标注）+ `capability_clusters` 定向 |
-
-**搜索执行规则**：
-- **S1 必须执行**：面经是简历定制的关键上下文，直接影响 CP3 追问方向和 Phase 4c mock 问题的真实性
-- **S2 条件执行**：公司知名度高（大厂/独角兽/上市公司）→ 必须执行；小型/冷门公司 → 降级为可选，避免无结果
-- **S3 按需执行**：用户表达了目标公司的长期发展关切，或公司近期有重大新闻/裁员/业务调整时触发
-- **每轮搜索结果必须至少影响一项下游产出**（见"产出落地点"列），否则标记为无效搜索（违反 A6）
-- 搜索结果中提取的关键信息标注 `来源：[搜索关键词]`，存入 `scout_report` 和 `interview_intel`
-
-**搜索降级链（当 WebFetch/WebSearch 被拦截时）**：
-
-| 降级层 | 工具 | 适用场景 |
-|--------|------|---------|
-| **L1（默认）** | WebSearch + WebFetch | 静态页面、大部分搜索引擎结果 |
-| **L2（JS 渲染）** | agent-browser（`agent-browser open <url>` → `agent-browser snapshot`） | JS 动态加载、被 bot 检测拦截的页面 |
-| **L3（真实浏览器）** | Claude in Chrome MCP（如 session 中可用） | 强反爬站、需要登录的站点 |
-| **L4（降级兜底）** | 搜索摘要片段 | 所有抓取手段失败时，仅用搜索引擎返回的标题+摘要 |
-
-**降级执行规则**：
-- WebFetch 返回空/403/超时 → 用 agent-browser 重试同一 URL
-- agent-browser 也失败 → 有 Chrome MCP 则用真实浏览器，无则跳到 L4
-- L4 兜底：使用搜索引擎返回的摘要片段作为情报，在 `scout_report` 中标注 `来源：搜索摘要（原文抓取失败）`
-- **不因为抓取失败就跳过整个搜索轮次**——摘要通常足够提取面经关键信息
-- 降级状态写入 snapshot `_meta.search_degradation`，Auditor 可据此评估情报可靠性
-
-4. Execute unified context extraction (script + LLM in one pass). Note: `jd_parser.py` only extracts structured features (years, degree). Scout must extract skill keywords, soft requirements, and `ats_keywords` via LLM and write them into `jd_facts` via STATE_UPDATE.
-5. Detect role level, region, document type
-6. Output consolidated context table + `interview_intel` 卡片（面经摘要 + 面试重点提示 + 文化关键词）+ risk warnings
+**执行骨架**（搜索关键词模板、4 级降级链、执行规则见 `references/phase_1_2_intelligence.md`）：
+1. 接收 JD（URL → fetch / 文本直接处理）；问用户：公司名？目标地区？
+2. 结构化联网搜索 3 轮：**S1 面经（必须执行）** / S2 团队文化（大厂必须、小厂可选）/ S3 公司动态（按需）
+3. 🔴 每轮搜索结果必须落地到至少一项下游产出（CP3 追问定向、4c mock 问题、risk_warnings 等），否则违反 A6
+4. 抓取失败走降级链（WebFetch → agent-browser → Chrome MCP → 搜索摘要兜底），🔴 不因抓取失败跳过整个搜索轮次
+5. 统一上下文提取（脚本 + LLM 一次完成）→ 输出 context table + `interview_intel` 卡片 + risk warnings
 
 ### Phase 2: Strict Matching
 
 **Node**: Context Scout (continuation) or Architect (if Fast-Track)
 **Reference**: Integrated into Phase 1 or `references/writer_guide.md`
 
-1. Read source resume (structured reader for .docx, fallback for .pdf)
-2. Semantic matching: Direct + Implicit (with confidence) + Gaps
-3. Cross-credential alignment
-4. Match score calculation
-5. Hard requirement alerts (dealbreakers)
-
-**Match output must classify each JD requirement into one of 5 states:**
-
-| State | Definition | Action |
-|-------|-----------|--------|
-| ✅ 已覆盖 | Direct, specific, verifiable evidence in resume | Polish wording at CP4 |
-| 🟡 弱覆盖 | Related experience exists but lacks depth, specifics, or individual contribution | Probe at CP3 for quantification |
-| ⬜ 未覆盖 | No evidence in current materials | Probe at CP3 for hidden experience |
-| 🔍 可补充 | User likely has relevant experience not yet captured | Ask targeted questions at CP3 |
-| ⛔ 不建议硬凑 | Clearly missing required credentials, industry, tools, or years of experience — no transferable path | Flag honestly. Tell the user: "这条不值得凑，硬写反而暴露缺口" |
-
-**"不建议硬凑" judgment criteria:**
-- Missing a hard credential (CPA, specific license, degree requirement)
-- Missing required industry experience with no transferable overlap
-- Missing required years of experience by a wide margin (e.g., JD asks 5+ years, user has 1)
-- Required tool/framework the user has never used and cannot credibly claim
-
-**This state is as important as "已覆盖" — telling the user what NOT to pursue saves them from interview exposure.**
+**执行骨架**（5 状态定义与"不建议硬凑"判断标准见 `references/phase_1_2_intelligence.md`）：
+读源简历 → 语义匹配（Direct + Implicit + Gaps）→ 每条 JD 需求归入 5 状态：✅ 已覆盖 / 🟡 弱覆盖 / ⬜ 未覆盖 / 🔍 可补充 / **⛔ 不建议硬凑**（缺硬性证书/行业/年限且无可迁移路径 → 诚实告知"这条不值得凑，硬写反而暴露缺口"——此状态与已覆盖同等重要）。
 
 ### Phase 3: Dynamic Interaction
 
@@ -683,43 +386,12 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 | **🔴 STOP CP3** | Quantification | Anti-Filler Rule: progressive probing. **WAIT for user to provide numbers or confirm "no data".** |
 | **🔴 STOP CP4** | Wording Upgrade | Verb map, cultural tone slider, before→after comparison. **WAIT for user approval before writing draft.** |
 
-**CP3 Progressive Probing Protocol** (when a bullet lacks quantification):
+**CP 执行细则**（CP3 递进追问 4 轮模板、CP4 文化语调滑块、CP4 措辞硬边界表、推断项逐项确认规则）见 `references/phase_3_interaction.md` + `references/interaction_checkpoints.md`。
 
-| Round | Question | Example |
-|-------|----------|---------|
-| 1 (Scope) | "影响了多少人/多少业务线？" | "全公司使用" / "覆盖 3 个 BU" |
-| 2 (Comparison) | "改造前后分别是什么状态？用了多久？" | "从 48h 缩短到 12h" |
-| 3 (Quality) | "准确率、错误率、客户反馈有变化吗？" | "准确率 99.5%" |
-| 4 (Business Impact) | "为公司节省了多少钱/带来多少收入？" | "年节省 2000+ 小时" |
-
-**If user cannot quantify after 2 rounds**: Write process-focused content, never use vague fillers ("实现智能化", "显著提升效率").
-
-**CP4 Cultural Tone Slider**:
-
-| Region | Level | Style | Self-Promotion |
-|--------|-------|-------|----------------|
-| North America | 5 (Assertive) | Led, Drove, Spearheaded | Results-first |
-| UK/Ireland | 4 | Delivered, Managed | Measured confidence |
-| DACH | 3 | Contributed to, Responsible for | Fact-focused |
-| East Asia | 2 (Collaborative) | 协同, 推进, 支持 | Team-oriented |
-| Nordics | 1 (Humble) | Contributed, Improved | Impact-only |
-
-**CP4 Wording Boundary（硬边界 — 措辞升级只改形式，不改事实）**:
-
-| ✅ 允许 | ❌ 禁止 |
-|--------|--------|
-| 换更强的动词（"参与了"→"主导了"）——**需有故事库/用户确认支撑** | 添加原简历和故事库里都没有的事实性描述 |
-| 调整语气（弱→强，根据区域 slider） | 添加新的职责范围（如"覆盖从需求到上线的完整产品周期"——除非有依据） |
-| 重组 bullet 结构（结果前置等） | 凭空添加量化数字 |
-| 对齐 JD 关键词（原简历有对应概念时） | 为对齐 JD 编造不存在的经验 |
-| 为每条 bullet 添加 `**前缀**:` 格式（命中 JD 关键词） | 前缀中使用形容词（"高效""全面""创新"） |
-
-**🔴 如果对某条措辞升级是否越界存疑 → 输出 before/after 并标注「不确定是否有依据」，让用户确认后再写入。**
-
-**🔴 推断项逐项确认规则**：CP4 中任何涉及 `[~]` 模型推断的内容（如 LLM 推断的部门名称、推断的技能水平、推断的业务规模），不能被用户的笼统回复（如"确认都可以""没问题"）通过。必须：
-1. 在 CP4 输出中，推断项单独标注 `⚠️ [推断]` 前缀，与普通措辞升级视觉区分
-2. 明确要求用户逐项确认推断内容的准确性（如"以下 2 条包含我推断的信息，请逐条确认"）
-3. 用户确认后，推断项的 `info_status` 从 `inferred` 变为 `confirmed`；用户否认则删除该内容
+**三条不可降级的硬规则**（常驻，不依赖 references）：
+1. CP3 追问最多 2 轮，无数字 → 写过程描述，🔴 禁用模糊填充词（"实现智能化""显著提升效率"）
+2. CP4 只改形式不改事实：动词升级需故事库/用户确认支撑，🔴 禁止凭空添加数字、职责或 JD 对齐用的不存在经验
+3. `[~]` 推断项必须单独标注 `⚠️ [推断]` 并逐项确认——用户笼统回复（"都可以""没问题"）不算确认
 
 **Global Interaction Principle**: Every question must include a concrete recommendation. User confirms or overrides — never decides from scratch.
 
@@ -732,224 +404,26 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 2. Auditor 的审计日志必须写入独立文件，不与草稿混在同一输出中
 3. 在审计日志中标注 `isolation_mode: degraded`，表示本次审计在共享上下文中完成
 
-#### Step 4a: Writer Node — Generate Draft
+**执行细则**（各步完整指令、HTML 模板变量映射、单页自检 density 表、Step 4e 对比维度表、Step 4f QA 模板见 `references/phase_4_delivery.md`）：
 
-**Node**: Resume Architect (`architect_writer`)
-**Formatting**: `references/formatting_rules.md` (contact info, certifications, bullet writing, skills section)
-**Input**: All confirmed decisions from Phase 3
-**Action**: Generate Markdown draft, save to `history/YYYY-MM-DD_{company}_{role}.md`
-**Constraint**: DO NOT self-audit. Just produce the draft.
-**🔴 交付物禁止标记泄露**：Writer 输出的 Markdown 草稿是最终交付物的基础，**禁止**在 bullet 中写入 `[✓]`、`[?]`、`[~]` 等信息状态标记。这些标记仅存在于 snapshot 的 `confirmed_quantifications` 字段和审计日志中，不出现在简历正文。
+| Step | 节点 | 做什么 | 硬规则 |
+|------|------|--------|--------|
+| **4a Writer 出稿** | architect_writer | 按 Phase 3 确认结果生成 MD 草稿到 history/ | 🔴 禁止自审；🔴 禁止 `[✓]/[?]/[~]` 标记泄露进正文；🔴 每条 bullet 必须 `**前缀**: 内容` 格式（前缀 2-4 词命中 JD 关键词、无形容词），缺失 = 4c 记 🟡 MINOR |
+| **4b 合规审查** | auditor_compliance | 地区合规（照片/年龄/PII） | 🔴 CRITICAL 违规必须列出 |
+| **4c 反向审计** | auditor_sincerity | 面试官人设逐条审（AI 痕迹/夸大/格式），mock 问题优先取材 Phase 1 S1 面经 | 🔴 发现 MAJOR → 先向用户报告问题列表，再 ROLLBACK 到 Phase 3 |
+| **4d 编译交付** | — | diff_audit + ats_checker + 渲染 HTML + 🔴 单页容量自检（按 bullet 数选 data-density）+ 🔴 生成 PDF | 🔴 PDF 必须走 `scripts/gen_resume_pdf.py` 字体子集化（<500KB A4 单页）；无 playwright/pymupdf → 降级手动 Ctrl+P 并警告字体膨胀 |
+| **4e 历史版本审计** | — | 与最近 3 份历史版本对比（量化倒退/内容回退/措辞弱化） | 🔴 量化倒退必须回退旧版数字；🔴 STOP 差异展示用户确认后再交付 |
+| **4f 面试准备包** | auditor_interview | 每条显著变化 → 面试 QA + STAR 应答 + S1 面经高频问题 | 🔴 标准交付物非可选；🔴 STOP 展示给用户后存 history/ |
 
-**🔴 Bullet 格式硬规则**：工作经历和项目经历中的每一条 bullet **必须**使用 `**前缀**: 详细内容` 格式。前缀 2-4 个词，命中 JD 关键词，不含形容词。
-
-```markdown
-✅ 正确（中文）：
-- **数据监控体系**：搭建外卖业务核心指标看板（Tableau），覆盖30+指标
-- **AB 测试优化**：主导3次 A/B 测试设计与分析，推动订单转化率提升8%
-
-✅ 正确（英文）：
-- **KPI Monitoring:** Built a real-time capital operations monitoring system, consolidating 15 SQL scripts into a unified dashboard covering 10+ metrics
-- **Process Automation:** Automated reconciliation between computed Net Position and system-native Net Unbilled WIP — reduced monthly close from 48h to 12h (↓75%)
-
-❌ 错误：
-- 搭建了外卖业务核心指标看板（Tableau），覆盖30+指标     ← 缺 **前缀**:
-- **高效搭建数据看板**：...                                ← 前缀含形容词"高效"
-- Architected a FIFO-based rolling aging model in Power BI... ← 英文 bullets 也需要 **Prefix**: 格式
-```
-
-无 `**前缀**:` 的 bullet = Auditor 4c 自动标记 🟡 MINOR 格式违规。
-
-#### Step 4b: Auditor Node — Compliance Check
-
-**Node**: Sincerity Auditor (`auditor_compliance`)
-**Input**: Draft + target region rules
-**Action**: Regional compliance (photo, age, PII per region)
-**Output**: Compliance table with 🔴 critical violations
-
-#### Step 4c: Auditor Node — Reverse Audit
-
-**Node**: Sincerity Auditor (`auditor_sincerity`)
-**Input**: Draft + interviewer persona + JD context + **Phase 1 `interview_intel`（面经摘要 + 面试重点提示）**
-**Actions**:
-1. Construct senior interviewer persona based on role type **+ Phase 1 S1 面经中提取的面试官风格/高频考点**
-2. Review every bullet for: AI trace, logical gap, scope inflation, buzzword defense, cultural mismatch, **`**前缀**:` 格式缺失**
-3. Classify severity: 🔴 MAJOR / 🟡 MINOR / 🟢 INFO
-   - 缺少 `**前缀**:` 格式的 bullet → 🟡 MINOR（格式违规，回退 Writer 补前缀）
-4. For each 🔴 MAJOR: generate mock interview questions + STAR prep sheets
-   - **Mock 问题优先取材自 Phase 1 S1 面经**：如面经中提到"面试官喜欢追问 AB 测试细节"，则 mock 问题必须覆盖 AB 测试场景
-
-**If 🔴 MAJOR found**: Set flag `["ROLLBACK"]` in STATE_UPDATE → engine reverts to Phase 3. **🔴 STOP — report findings to user before rollback, let user decide which issues to fix.**
-
-#### Step 4d: Compile & Deliver
-
-1. Run `scripts/diff_audit.py` (source vs tailored change evidence)
-2. Run `scripts/ats_checker.py` (ATS compatibility score)
-3. Compile final audit log combining all sources
-4. Save Markdown draft: `history/{date}_{company}_{role}.md`
-5. Render HTML: 将 MD 内容按节段映射到 `templates/resume_swiss.html` 模板变量 → 写入 `history/{date}_{company}_{role}.html`
-5b. **🔴 单页容量自检（Single-Page Fit Check，强制）**：一页简历必须打印在 A4 单页内，不允许某个 section（尤其 PROJECTS/SKILLS）被挤到第二页。
-   - **统计正文 bullet 总数**（所有经历 + 项目的 `<li>` 之和）+ 经历/项目条目数。
-   - **按内容量选 density**（写入 `<body data-density="...">`，CSS 全文仍逐字节照抄模板，仅此一个属性可变）：
-     | 正文 bullet 数 | density 属性 | 说明 |
-     |---|---|---|
-     | <= 10 | `relaxed` | 内容少，放宽间距更美观 |
-     | 11 - 16 | *(默认，不加属性)* | 模板默认已是单页安全基线 |
-     | 17+ | `ultra` | 极限压缩，最后手段；优先考虑精简 bullet |
-   - **交付时 Agent 已同时产出 PDF**（字体子集化，< 500KB，见 Step 4d-5c），用户无需手动 Ctrl+P。仍提示用户可在浏览器打开 HTML 复核排版；若某节换页，回我一声我再收紧 density。
-5c. **🔴 生成 PDF 交付物（强制）**：调用 `scripts/gen_resume_pdf.py {date}_{company}_{role}.html {date}_{company}_{role}.pdf` 产出字体子集化 PDF（目标 < 500KB、A4 单页）。若环境缺 playwright/pymupdf → 降级为用户手动 Ctrl+P 并在交付中明确警告字体膨胀风险（见 Rendering Pipeline 的 PDF 管线说明）。PDF 与 HTML 同路径同前缀，一并交付。
-6. Archive snapshot from `sessions/` to `history/`
-
-> 🛑 **DELIVERY GATE**：Phase 4a Writer → Phase 4b Compliance → Phase 4c Reverse Audit（含 B-3 编造阻断门） → Phase 4d Compile → Phase 4e Historical Audit → Phase 4f Interview Prep，**六步缺一不可**。跳过 Auditor = 未完成交付。编造阻断门任一 🔴 → 整份草稿 ROLLBACK。跳过 4f = 交付不完整。
-
-#### HTML 模板变量映射
-
-`templates/resume_swiss.html` 使用 `{{VARIABLE}}` 占位符，渲染时替换：
-
-| 模板变量 | 来源 | 说明 |
-|---------|------|------|
-| `{{NAME}}` | resume_master.md 个人信息 → 姓名 | 顶部大标题 |
-| `{{SUBTITLE_BLOCK}}` | 目标岗位 / 一句话定位 | 可选，无则留空 |
-| `{{CONTACT_ITEMS}}` | 邮箱、电话、城市、LinkedIn、GitHub | 各一个 `<span>` |
-| `{{SUMMARY_BLOCK}}` | 个人总结段 | 可选，无则留空（含 section-title + 段落） |
-| `{{EDUCATION_SECTION}}` | 教育背景整节（标题 + 条目） | 每个学历 = 一个 `.edu-item` |
-| `{{EXPERIENCE_SECTION}}` | 工作经历整节（标题 + 条目） | 每个经历 = 一个 `.exp-item` |
-| `{{PROJECTS_SECTION}}` | 项目经历整节 | 可选，结构与 experience 相同 |
-| `{{SKILLS_SECTION}}` | 技能整节（标题 + skills-grid） | 每个 skill = 一个 `.skill-entry` |
-| `{{META_EXTRA}}` | 公司名、日期等元信息 | 非打印区生成信息 |
-
-#### Output Naming Convention
-
-- **项目副标题**：写角色/身份（如"独立开发""个人项目"），**不写课程编号或学校名**（如 ❌"NUS BAP" ❌"课程项目"）。目的是让面试官感知为独立成果而非课堂 toy。
-- **地点**：写城市或国家，不写学校。
-
-#### Step 4e: Historical Version Audit ⭐
-
-**每次生成新简历前，必须与历史版本对比。不允许新版本在量化或措辞上比旧版倒退。**
-
-**执行时机**：Phase 4d 编译完成后、交付用户前。
-
-**操作步骤**：
-1. `find history/ -name "*.html" -o -name "*.md" | sort -r | head -3` — 取最近 3 份历史简历
-2. 逐段对比新简历 vs 最近版本：
-
-| 检查维度 | 方法 | 触发条件 |
-|---|---|---|
-| **量化倒退** | grep 新简历的每个数字（百分比/时长/金额），确认旧版同 bullet 有该数字 | 旧版有量化数据而新版删除了 → 🔴 |
-| **内容回退** | 对比同经历的 bullet 数量和覆盖维度 | 旧版 4 条 bullet 新版 3 条，且缺失的不是刻意删除的 → 🟡 |
-| **措辞弱化** | 对比同 bullet 的动词（如"主导"变"参与"、"设计"变"协助"） | 动词降级且无合理解释 → 🟡 |
-
-**处理规则**：
-- 🔴 量化倒退 → **必须回退到旧版数字**，除非用户明确要求删除
-- 🟡 内容回退/措辞弱化 → **列出差异给用户确认**，由用户决定保留新版还是回退
-- 如果旧简历本身有错误（数字不对、经历过时），新版纠正不算倒退
-
-**反例**：新版简历将旧版的"将处理时间从 X 缩短到 Y"简化为"显著提升效率"，丢失了具体量化数据——这就是量化倒退。本条 Protocol 的意义就是防止这类问题：新版本必须在每个维度上 ≥ 旧版本。
-
-3. 输出审计报告：`{date}_{role}_version_audit.md`，列出所有差异及处理建议
-4. 🔴 STOP — 展示差异给用户确认后再交付
-
-#### Step 4f: Interview Prep Pack（面试准备包）
-
-**这是标准交付物，不是可选项。** 每次 Mode A/A2 交付都必须包含面试准备包。
-
-**Node**: Sincerity Auditor（复用 Phase 4c 的面试官人设）
-**Input**: 
-- Final draft（4e 审计通过后的版本）
-- Phase 1 `interview_intel`（S1 面经情报）
-- `resume_master.md`（原始简历，用于识别"显著变化"）
-
-**步骤**：
-
-1. **识别显著变化**：对比 `resume_master.md` 和最终简历，提取所有：
-   - 新增的 bullet（CP2 缺口填补产生的新内容）
-   - 量化数据发生变化的 bullet（CP3 追问后补充了数字）
-   - 措辞显著升级的 bullet（CP4 动词等级提升 ≥2 级）
-
-2. **为每个显著变化生成面试 QA**：
-
-   ```markdown
-   ### [经历名称] — [变化类型：新增/量化补充/措辞升级]
-
-   **简历写法**：[最终简历中的 bullet]
-   **与原始简历的差异**：[改了什么]
-
-   **面试官可能追问**：
-   1. [问题 1]（来源：Phase 1 面经 / 通用追问模式）
-   2. [问题 2]
-
-   **STAR 应答要点**：
-   - S（背景）：[情境]
-   - T（任务）：[目标]
-   - A（行动）：[你的具体行动]
-   - R（结果）：[量化结果 + 数据来源]
-
-   **⚠️ 面试注意**：[需要特别留意的点，如数字来源、角色边界、避免过度包装]
-   ```
-
-3. **通用高频问题**（基于 S1 面经）：
-   - 从 Phase 1 S1 面经中提取出现频率最高的 3-5 个追问方向
-   - 每个方向给出 1 个典型问题 + 应答建议
-   - 如 S1 面经抓取失败（降级到 L4），则基于岗位类型生成通用问题，标注「来源：通用模板（面经抓取失败）」
-
-4. **展示 + 保存**：
-   - 🔴 STOP — 面试准备包展示给用户，作为交付物的一部分
-   - 保存到 `history/{date}_{company}_{role}_interview_prep.md`
-
-**与 Phase 4c 的关系**：
-- 4c 是审计：找问题、判断是否 ROLLBACK，mock 问题仅针对 🔴 MAJOR 风险点
-- 4f 是面试准备：覆盖所有显著变化，帮用户准备回答
-- 4c 的 mock 问题是防御性的（"这个 bullet 可能被追穿"），4f 的 mock 问题是建设性的（"面试官会问什么，怎么答"）
+> 🛑 **DELIVERY GATE**：4a → 4b → 4c → 4d → 4e → 4f 六步缺一不可、顺序不可重排。跳过 Auditor = 未完成交付。编造阻断门任一 🔴 → 整份草稿 ROLLBACK。跳过 4f = 交付不完整。
 
 ## Rendering Pipeline
 
-```
-Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出）
-                    │
-                    ├──→ 直接交付 Markdown
-                    │    可读、可 diff、可进 Git 版本审计
-                    │    这是简历的「源代码」——所有渲染格式由此衍生
-                    │
-                    ├──→ 模板替换 → {date}_{company}_{role}.html （主交付物）
-                    │    模板：templates/resume_swiss.html
-                    │    渲染方式：renderer.py 解析 MD，填充 {{SECTION}} 级占位符
-                    │    Times New Roman 传统风，单文件自包含，零外部依赖
-                    │
-                    └──→ 字体子集化 → {date}_{company}_{role}.pdf （主交付物，Agent 自动产出）
-                         管线：scripts/gen_resume_pdf.py（Playwright 无头渲染 + PyMuPDF 字体子集化压缩）
-                         目标体积 < 500KB（一页纯文本简历正常 ~100KB），A4 单页，内容无损
-                         浏览器打开 HTML 复核排版为可选，不再强依赖手动 Ctrl+P
-```
+MD（简历「源代码」，始终产出）→ HTML（`templates/resume_swiss.html` 模板替换；🔴 CSS 逐字节照抄模板，仅 `<body data-density>` 一个属性可变）→ PDF（`scripts/gen_resume_pdf.py` 字体子集化，<500KB A4 单页）。三者均为主交付物；DOCX 已于 v3.3 移除。
 
-**输出优先级**：
+**渲染降级**：模板缺失 → 纯 MD 交付不报错；无 playwright/pymupdf → 提示手动 Ctrl+P 并 🔴 警告「浏览器另存为 PDF 嵌入完整字体会膨胀到 900KB+」。
 
-| 格式 | 优先级 | 说明 |
-|------|--------|------|
-| **Markdown** | 主交付物 | Phase 4a Writer 直接产出，可读、可 diff、可进 Git 版本审计。这是简历的「源代码」 |
-| **HTML** | 主交付物 | `templates/resume_swiss.html` 模板渲染，Times New Roman 传统风，浏览器直接打开 |
-| **PDF** | 主交付物 | `scripts/gen_resume_pdf.py` 自动产出（Playwright 无头渲染 + PyMuPDF 字体子集化压缩），目标 < 500KB、A4 单页；浏览器 Ctrl+P 复核为可选 |
-| DOCX | 已移除 | v3.3 起不再作为 pipeline 步骤，移除 WeasyPrint / pandoc / pypandoc 依赖 |
-
-**HTML 模板设计原则**（Times New Roman 传统风）：
-- 衬线标题体 + 微软雅黑后备，信噪比优先
-- 粗体冒号前缀 bullet 格式（`<span class="bullet-summary">前缀：</span> 描述`）
-- 单文件自包含，CSS 变量驱动，零外部依赖
-- A4 打印优化：`@page { size: A4 }` + `print-color-adjust: exact`
-- 字体：Times New Roman (Latin) + Microsoft YaHei / 微软雅黑 (CJK)
-
-**🔴 Writer HTML 生成强制规则**：Writer 必须从 `templates/resume_swiss.html` 复制 `<style>` 标签全文（不含 `{{VARIABLE}}` 注释），嵌入生成的 HTML 中。禁止自定义 CSS、禁止替换字体、禁止修改设计 token。每次生成的 HTML 应与历史版本 CSS 逐字节一致。**唯一允许的例外**：`<body>` 标签可按 Step 4d-5b 的自检结果追加 `data-density="relaxed|ultra"` 属性来切换单页密度——这不改 CSS 本身（密度覆盖块已内建在模板 `<style>` 里），只是选择一档预设。禁止手改 `--fs-*`/`--gap-*`/`--lh-*` 等变量值。
-
-**渲染降级**：
-- 模板文件缺失 → 直接 Markdown 交付，HTML 生成跳过，不报错不中断
-- **零依赖降级**：不需要任何 Python 包。renderer.py 仅使用 Python 标准库（json、re、pathlib）
-
-**PDF 生成管线（Step 4d-5c，强制）**：
-- **目的**：简历 PDF 必须 < 500KB、A4 单页、内容无损；**杜绝浏览器"另存为 PDF"把完整 TNR 字体嵌入导致 900KB+ 的问题**
-- **脚本**：`scripts/gen_resume_pdf.py <input.html> <output.pdf>`
-- **管线**：Playwright Chromium（无头）渲染 HTML → PyMuPDF `subset_fonts()` + `deflate=True` + `garbage=4` + `clean=True` 压缩
-- **前置依赖**：`pip install playwright pymupdf`；`playwright install chromium`（浏览器缓存于 ms-playwright）
-- **体积基线**：一页纯文本简历正常 ~100KB；若 > 500KB 触发告警
-- **降级路径**：环境无 playwright/pymupdf → 回退提示用户手动 Ctrl+P，并明确警告「浏览器另存为 PDF 会嵌入完整 TNR 字体导致 900KB+，务必用 Chromium 无头或本管线」；交付中 PDF 行标注为「用户侧生成（未子集化）」
+完整管线图、模板设计原则、PDF 管线参数见 `references/phase_4_delivery.md`。
 
 ## Output Structure
 
@@ -961,10 +435,17 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
 ├── templates/
 │   ├── resume_swiss.html            # HTML 模板（Times New Roman 传统风，v3.5 主模板）
 │   └── state_update_template.md
-├── references/                      # Expert node guides
-│   ├── writer_guide.md
-│   ├── auditor_guide.md
-│   ├── interaction_checkpoints.md
+├── references/                      # 分段加载指令（见 Progressive Loading Protocol）
+│   ├── onboarding_init.md           # Init-A / Init-B 详细流程
+│   ├── modes_playbook.md            # Scenario C/D · Mode A2/B · Story Library Protocol
+│   ├── phase_1_2_intelligence.md    # Phase 1/2 执行细则
+│   ├── phase_3_interaction.md       # Phase 3 执行细则
+│   ├── phase_4_delivery.md          # Phase 4a-4f · 渲染管线 · PDF
+│   ├── writer_guide.md              # Writer 节点指南
+│   ├── auditor_guide.md             # Auditor 节点指南
+│   ├── interaction_checkpoints.md   # CP1-CP4 交互指引
+│   ├── formatting_rules.md
+│   ├── reverse_audit_checklist.md
 │   └── audit_log_template.md
 ├── sessions/{session_id}/           # Runtime snapshots
 │   └── snapshot.json

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.8] - 2026-07-13
+
+### Changed
+- **Progressive Loading Protocol**: SKILL.md slimmed 63.6KB → ~36KB. It now keeps only routing, gates (🔴 STOP / DELIVERY GATE), and iron rules (Anti-Patterns, Error Handling, Five Principles, Info Status Marking). Detailed phase instructions moved to stage-loaded reference files that the agent MUST read only when entering the corresponding stage — reduces context pressure on small-context (256K) models and mitigates mid-pipeline instruction loss
+- New reference files (verbatim extraction, zero content loss): `references/onboarding_init.md` (Init-A/B), `references/modes_playbook.md` (Scenario C/D, Mode A2/B, Story Library Protocol), `references/phase_1_2_intelligence.md`, `references/phase_3_interaction.md`, `references/phase_4_delivery.md` (Steps 4a-4f, rendering pipeline, PDF pipeline)
+- Expert Nodes table: Context Scout now points to `references/phase_1_2_intelligence.md`
+
 ## [3.7] - 2026-07-13
 
 ### Added
