@@ -1,7 +1,7 @@
 ---
 name: baogong
 description: "求职教练，不是润色器。针对 JD 交互式定制简历，编造阻断门确保每条经历经得起面试追问。HTML + Markdown 双交付。"
-version: "3.4"
+version: "3.7"
 required_permissions:
   - Read    # 读取源简历、故事库、JD 文本
   - Write   # 写入定制后简历、snapshot、history/
@@ -788,6 +788,16 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 3. Compile final audit log combining all sources
 4. Save Markdown draft: `history/{date}_{company}_{role}.md`
 5. Render HTML: 将 MD 内容按节段映射到 `templates/resume_swiss.html` 模板变量 → 写入 `history/{date}_{company}_{role}.html`
+5b. **🔴 单页容量自检（Single-Page Fit Check，强制）**：一页简历必须打印在 A4 单页内，不允许某个 section（尤其 PROJECTS/SKILLS）被挤到第二页。
+   - **统计正文 bullet 总数**（所有经历 + 项目的 `<li>` 之和）+ 经历/项目条目数。
+   - **按内容量选 density**（写入 `<body data-density="...">`，CSS 全文仍逐字节照抄模板，仅此一个属性可变）：
+     | 正文 bullet 数 | density 属性 | 说明 |
+     |---|---|---|
+     | <= 10 | `relaxed` | 内容少，放宽间距更美观 |
+     | 11 - 16 | *(默认，不加属性)* | 模板默认已是单页安全基线 |
+     | 17+ | `ultra` | 极限压缩，最后手段；优先考虑精简 bullet |
+   - **交付时 Agent 已同时产出 PDF**（字体子集化，< 500KB，见 Step 4d-5c），用户无需手动 Ctrl+P。仍提示用户可在浏览器打开 HTML 复核排版；若某节换页，回我一声我再收紧 density。
+5c. **🔴 生成 PDF 交付物（强制）**：调用 `scripts/gen_resume_pdf.py {date}_{company}_{role}.html {date}_{company}_{role}.pdf` 产出字体子集化 PDF（目标 < 500KB、A4 单页）。若环境缺 playwright/pymupdf → 降级为用户手动 Ctrl+P 并在交付中明确警告字体膨胀风险（见 Rendering Pipeline 的 PDF 管线说明）。PDF 与 HTML 同路径同前缀，一并交付。
 6. Archive snapshot from `sessions/` to `history/`
 
 > 🛑 **DELIVERY GATE**：Phase 4a Writer → Phase 4b Compliance → Phase 4c Reverse Audit（含 B-3 编造阻断门） → Phase 4d Compile → Phase 4e Historical Audit → Phase 4f Interview Prep，**六步缺一不可**。跳过 Auditor = 未完成交付。编造阻断门任一 🔴 → 整份草稿 ROLLBACK。跳过 4f = 交付不完整。
@@ -900,11 +910,15 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
                     │    可读、可 diff、可进 Git 版本审计
                     │    这是简历的「源代码」——所有渲染格式由此衍生
                     │
-                    └──→ 模板替换 → {date}_{company}_{role}.html （主交付物）
-                         模板：templates/resume_swiss.html
-                         渲染方式：renderer.py 解析 MD，填充 {{SECTION}} 级占位符
-                         瑞士国际主义风，单文件自包含，零外部依赖
-                         浏览器直接打开，Ctrl+P → 保存为 PDF
+                    ├──→ 模板替换 → {date}_{company}_{role}.html （主交付物）
+                    │    模板：templates/resume_swiss.html
+                    │    渲染方式：renderer.py 解析 MD，填充 {{SECTION}} 级占位符
+                    │    Times New Roman 传统风，单文件自包含，零外部依赖
+                    │
+                    └──→ 字体子集化 → {date}_{company}_{role}.pdf （主交付物，Agent 自动产出）
+                         管线：scripts/gen_resume_pdf.py（Playwright 无头渲染 + PyMuPDF 字体子集化压缩）
+                         目标体积 < 500KB（一页纯文本简历正常 ~100KB），A4 单页，内容无损
+                         浏览器打开 HTML 复核排版为可选，不再强依赖手动 Ctrl+P
 ```
 
 **输出优先级**：
@@ -912,20 +926,30 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
 | 格式 | 优先级 | 说明 |
 |------|--------|------|
 | **Markdown** | 主交付物 | Phase 4a Writer 直接产出，可读、可 diff、可进 Git 版本审计。这是简历的「源代码」 |
-| **HTML** | 主交付物 | `templates/resume_swiss.html` 模板渲染，瑞士国际主义风，浏览器直接打开 |
-| PDF | 用户侧生成 | 浏览器打开 HTML → Ctrl+P → 保存为 PDF。**不在 pipeline 内自动执行** |
+| **HTML** | 主交付物 | `templates/resume_swiss.html` 模板渲染，Times New Roman 传统风，浏览器直接打开 |
+| **PDF** | 主交付物 | `scripts/gen_resume_pdf.py` 自动产出（Playwright 无头渲染 + PyMuPDF 字体子集化压缩），目标 < 500KB、A4 单页；浏览器 Ctrl+P 复核为可选 |
 | DOCX | 已移除 | v3.3 起不再作为 pipeline 步骤，移除 WeasyPrint / pandoc / pypandoc 依赖 |
 
-**HTML 模板设计原则**（继承自 guizang-ppt Swiss 风格）：
-- 信息优先，零装饰（无阴影、无圆角、无渐变）
-- 字体层级：越大越细（name 300 → body 400 → meta 600）
+**HTML 模板设计原则**（Times New Roman 传统风）：
+- 衬线标题体 + 微软雅黑后备，信噪比优先
+- 粗体冒号前缀 bullet 格式（`<span class="bullet-summary">前缀：</span> 描述`）
 - 单文件自包含，CSS 变量驱动，零外部依赖
 - A4 打印优化：`@page { size: A4 }` + `print-color-adjust: exact`
-- 字体：Inter (Latin) + Noto Sans SC / Microsoft YaHei (CJK)
+- 字体：Times New Roman (Latin) + Microsoft YaHei / 微软雅黑 (CJK)
+
+**🔴 Writer HTML 生成强制规则**：Writer 必须从 `templates/resume_swiss.html` 复制 `<style>` 标签全文（不含 `{{VARIABLE}}` 注释），嵌入生成的 HTML 中。禁止自定义 CSS、禁止替换字体、禁止修改设计 token。每次生成的 HTML 应与历史版本 CSS 逐字节一致。**唯一允许的例外**：`<body>` 标签可按 Step 4d-5b 的自检结果追加 `data-density="relaxed|ultra"` 属性来切换单页密度——这不改 CSS 本身（密度覆盖块已内建在模板 `<style>` 里），只是选择一档预设。禁止手改 `--fs-*`/`--gap-*`/`--lh-*` 等变量值。
 
 **渲染降级**：
 - 模板文件缺失 → 直接 Markdown 交付，HTML 生成跳过，不报错不中断
 - **零依赖降级**：不需要任何 Python 包。renderer.py 仅使用 Python 标准库（json、re、pathlib）
+
+**PDF 生成管线（Step 4d-5c，强制）**：
+- **目的**：简历 PDF 必须 < 500KB、A4 单页、内容无损；**杜绝浏览器"另存为 PDF"把完整 TNR 字体嵌入导致 900KB+ 的问题**
+- **脚本**：`scripts/gen_resume_pdf.py <input.html> <output.pdf>`
+- **管线**：Playwright Chromium（无头）渲染 HTML → PyMuPDF `subset_fonts()` + `deflate=True` + `garbage=4` + `clean=True` 压缩
+- **前置依赖**：`pip install playwright pymupdf`；`playwright install chromium`（浏览器缓存于 ms-playwright）
+- **体积基线**：一页纯文本简历正常 ~100KB；若 > 500KB 触发告警
+- **降级路径**：环境无 playwright/pymupdf → 回退提示用户手动 Ctrl+P，并明确警告「浏览器另存为 PDF 会嵌入完整 TNR 字体导致 900KB+，务必用 Chromium 无头或本管线」；交付中 PDF 行标注为「用户侧生成（未子集化）」
 
 ## Output Structure
 
@@ -935,7 +959,7 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
 ├── project-story-library.md         # 故事库（Mode B 唯一事实来源）
 ├── schemas/snapshot_schema_v1.json  # Protocol definition
 ├── templates/
-│   ├── resume_swiss.html            # HTML 模板（瑞士国际主义风，v3.3 主模板）
+│   ├── resume_swiss.html            # HTML 模板（Times New Roman 传统风，v3.5 主模板）
 │   └── state_update_template.md
 ├── references/                      # Expert node guides
 │   ├── writer_guide.md
@@ -947,6 +971,7 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
 └── history/
     ├── {date}_{company}_{role}.md              # Tailored Markdown（主交付物）
     ├── {date}_{company}_{role}.html            # Tailored HTML（主交付物，瑞士风）
+    ├── {date}_{company}_{role}.pdf             # Tailored PDF（主交付物，字体子集化 <500KB）
     ├── {date}_{company}_{role}_audit.md        # Audit log
     ├── {date}_{company}_{role}_snapshot.json   # Archived state
     ├── {date}_{company}_{role}_interview_intel.md  # Phase 1 面经情报
@@ -985,6 +1010,8 @@ Phase 4a Writer → {date}_{company}_{role}.md （Markdown 草稿，始终产出
 | A5 | **STATE_UPDATE 解析失败后静默继续** | JSON parse error → Agent 忽略错误继续下一步 | snapshot 状态不一致，后续所有节点读到的都是脏数据 | JSON 解析失败 → 立即停止，输出原始文本，提示用户「状态同步失败，需要人工确认后继续」 |
 | A6 | **web_search 执行了但结果未落地** | 搜索结果未出现在 `scout_report`、`risk_warnings`、`capability_clusters`、或 `interview_intel` 中 | 浪费 token + 用户看到"调研了但没用" | 每轮搜索结果必须至少影响一项下游产出（见 Phase 1 的"产出落地点"列），标注 `来源：[搜索关键词]` |
 | A7 | **历史版本审计（Step 4e）在 4d 之前跑** | Agent 重排了执行顺序「先审计再出稿」 | Step 4e 的输入是 4d 编译完成的草稿，提前跑没有内容可比对 | 严格顺序：4a → 4b → 4c → 4d → 4e → 交付。不允许重排 |
+| A8 | **生成 HTML 后不做单页容量自检** | Agent 直接交付，未按 bullet 数选 density，也未产出 PDF → 打印时 PROJECTS/SKILLS 被挤到第二页，很不美观 | 一页简历跨页 = 排版失败；且模板默认宽松时内容密集必溢出 | Step 4d-5b 强制按 bullet 数选 `data-density`（<=10→relaxed，11-16→默认，17+→ultra）；Step 4d-5c 由 Agent 自动产出字体子集化 PDF（<500KB），不再依赖用户手动 Ctrl+P；环境无 playwright/pymupdf 时降级并明确警告字体膨胀风险 |
+| A9 | **生成 PDF 不走字体子集化管线，直接交付 HTML 让用户自行 Ctrl+P 另存** | 浏览器"另存为 PDF"会把完整 TNR 字体（~600KB）嵌入，一页纯文本简历膨胀到 900KB+，远超投递系统 500KB 限制 | 必须用 `scripts/gen_resume_pdf.py`（Playwright 无头渲染 + PyMuPDF 字体子集化压缩）自动产出 <500KB 的 A4 PDF，见 [[#PDF 生成管线（Step 4d-5c，强制）]] |
 
 ## Error Handling
 
