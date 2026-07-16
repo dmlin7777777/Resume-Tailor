@@ -408,7 +408,7 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 
 | Step | 节点 | 做什么 | 硬规则 |
 |------|------|--------|--------|
-| **4a Writer 出稿** | architect_writer | 按 Phase 3 确认结果生成 MD 草稿到 history/ | 🔴 禁止自审；🔴 禁止 `[✓]/[?]/[~]` 标记泄露进正文；🔴 每条 bullet 必须 `**前缀**: 内容` 格式（前缀 2-4 词命中 JD 关键词、无形容词），缺失 = 4c 记 🟡 MINOR |
+| **4a Writer 出稿** | architect_writer | 按 Phase 3 确认结果生成 MD 草稿到 history/ | 🔴 禁止自审；🔴 禁止 `[✓]/[?]/[~]` 标记泄露进正文；🔴 每条 bullet 必须 `**前缀**: 内容` 格式（前缀 2-4 词命中 JD 关键词、无形容词），缺失 = 4c 记 🟡 MINOR；🔴 正文禁用 `→/↑/↓` 箭头符号和 `(↓75%)` 式缩写（AI 痕迹），前后对比用自然语言「从 X 缩短至 Y」 |
 | **4b 合规审查** | auditor_compliance | 地区合规（照片/年龄/PII） | 🔴 CRITICAL 违规必须列出 |
 | **4c 反向审计** | auditor_sincerity | 面试官人设逐条审（AI 痕迹/夸大/格式），mock 问题优先取材 Phase 1 S1 面经 | 🔴 发现 MAJOR → 先向用户报告问题列表，再 ROLLBACK 到 Phase 3 |
 | **4d 编译交付** | — | diff_audit + ats_checker + 渲染 HTML + 🔴 单页容量自检（按 bullet 数选 data-density）+ 🔴 生成 PDF | 🔴 PDF 必须走 `scripts/gen_resume_pdf.py` 字体子集化（<500KB A4 单页）；无 playwright/pymupdf → 降级手动 Ctrl+P 并警告字体膨胀 |
@@ -416,6 +416,8 @@ Every node MUST append `STATE_UPDATE JSON` at end of output (see `templates/stat
 | **4f 面试准备包** | auditor_interview | 每条显著变化 → 面试 QA + STAR 应答 + S1 面经高频问题 | 🔴 标准交付物非可选；🔴 STOP 展示给用户后存 history/ |
 
 > 🛑 **DELIVERY GATE**：4a → 4b → 4c → 4d → 4e → 4f 六步缺一不可、顺序不可重排。跳过 Auditor = 未完成交付。编造阻断门任一 🔴 → 整份草稿 ROLLBACK。跳过 4f = 交付不完整。
+>
+> 🔴 **4d 完成判定 = 三件套齐**：向用户交付时必须**同时列出三个文件路径**——`.md` + `.html` + `.pdf`。PDF 不是等用户要才生成的追加项，是 4d 的组成部分；只交 HTML 未交 PDF = 4d 未完成，禁止进入 4e。（环境缺 playwright/pymupdf 时才允许降级，且必须在交付信息中说明降级原因和 Ctrl+P 警告。）
 
 ## Rendering Pipeline
 

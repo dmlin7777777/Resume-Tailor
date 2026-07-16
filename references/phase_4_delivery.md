@@ -22,6 +22,8 @@
 
 **🔴 Bullet 格式硬规则**：工作经历和项目经历中的每一条 bullet **必须**使用 `**前缀**: 详细内容` 格式。前缀 2-4 个词，命中 JD 关键词，不含形容词。
 
+**🔴 禁止符号堆砌（AI 痕迹）**：bullet 正文**禁止**使用 `→`、`↑`、`↓`、`⇒` 等箭头符号和 `(↓75%)` 式括号缩写。前后对比用自然语言写：「从 X 缩短至 Y」「由 X 提升到 Y」。箭头是 AI 生成简历的高频指纹，面试官和 ATS 都会扣分。
+
 ```markdown
 ✅ 正确（中文）：
 - **数据监控体系**：搭建外卖业务核心指标看板（Tableau），覆盖30+指标
@@ -29,15 +31,16 @@
 
 ✅ 正确（英文）：
 - **KPI Monitoring:** Built a real-time capital operations monitoring system, consolidating 15 SQL scripts into a unified dashboard covering 10+ metrics
-- **Process Automation:** Automated reconciliation between computed Net Position and system-native Net Unbilled WIP — reduced monthly close from 48h to 12h (↓75%)
+- **Process Automation:** Automated reconciliation between computed Net Position and system-native Net Unbilled WIP, cutting monthly close from 48 hours to 12
 
 ❌ 错误：
 - 搭建了外卖业务核心指标看板（Tableau），覆盖30+指标     ← 缺 **前缀**:
 - **高效搭建数据看板**：...                                ← 前缀含形容词"高效"
 - Architected a FIFO-based rolling aging model in Power BI... ← 英文 bullets 也需要 **Prefix**: 格式
+- **数据时效优化**：报表更新 T+3 → T+1（↑67%）              ← 箭头 + 括号缩写 = AI 痕迹，应写「从 T+3 提前至 T+1」
 ```
 
-无 `**前缀**:` 的 bullet = Auditor 4c 自动标记 🟡 MINOR 格式违规。
+无 `**前缀**:` 的 bullet = Auditor 4c 自动标记 🟡 MINOR 格式违规。正文含箭头符号 = Auditor 4c 自动标记 🟡 MINOR AI 痕迹，回退 Writer 改写为自然语言。
 
 #### Step 4b: Auditor Node — Compliance Check
 
@@ -78,6 +81,8 @@
    - **交付时 Agent 已同时产出 PDF**（字体子集化，< 500KB，见 Step 4d-5c），用户无需手动 Ctrl+P。仍提示用户可在浏览器打开 HTML 复核排版；若某节换页，回我一声我再收紧 density。
 5c. **🔴 生成 PDF 交付物（强制）**：调用 `scripts/gen_resume_pdf.py {date}_{company}_{role}.html {date}_{company}_{role}.pdf` 产出字体子集化 PDF（目标 < 500KB、A4 单页）。若环境缺 playwright/pymupdf → 降级为用户手动 Ctrl+P 并在交付中明确警告字体膨胀风险（见 Rendering Pipeline 的 PDF 管线说明）。PDF 与 HTML 同路径同前缀，一并交付。
 6. Archive snapshot from `sessions/` to `history/`
+
+**🔴 4d 完成判定 = 三件套齐**：向用户交付时必须**同时列出三个文件路径**——`.md` + `.html` + `.pdf`，一次性交齐。PDF 不是等用户要才生成的追加项，是 Step 5c 的强制产出；只交 HTML 未交 PDF = 4d 未完成，禁止进入 4e。执行顺序上 5c 紧跟 5b 之后立即执行，不要把 PDF 留到"用户确认 HTML 后"。
 
 > 🛑 **DELIVERY GATE**：Phase 4a Writer → Phase 4b Compliance → Phase 4c Reverse Audit（含 B-3 编造阻断门） → Phase 4d Compile → Phase 4e Historical Audit → Phase 4f Interview Prep，**六步缺一不可**。跳过 Auditor = 未完成交付。编造阻断门任一 🔴 → 整份草稿 ROLLBACK。跳过 4f = 交付不完整。
 

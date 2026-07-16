@@ -33,6 +33,9 @@ Universal formatting rules for the Writer node. Apply these during CP4 (Wording 
   - ❌ "Assisted multiple clients" → ✅ "Assisted 30+ clients"
   - ❌ "Processed large volumes of data" → ✅ "Processed 2M+ records daily"
   - If the number is genuinely unknown, mark `[confirm: how many?]` during drafting — never guess
+- **No arrow symbols or shorthand in bullet text**: `→`, `↑`, `↓`, `⇒` and parenthetical shorthand like `(↓75%)` are banned — they are a high-frequency AI fingerprint. Write comparisons in natural language
+  - ❌ "异常检出从人工抽查（~2天）→ 实时告警" → ✅ "异常检出从约 2 天的人工抽查缩短至实时告警"
+  - ❌ "reduced close from 48h to 12h (↓75%)" → ✅ "cut monthly close from 48 hours to 12"
 - **One achievement per bullet** — don't chain two unrelated outcomes with "and". Split into separate bullets
 - **No orphan bullets** — if a role has only 1 bullet, either expand it or merge the role into another entry. A single bullet signals thin experience
 

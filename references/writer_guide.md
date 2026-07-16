@@ -379,7 +379,10 @@ Every single bullet point under Work Experience MUST use this exact pattern:
 - **Data Pipeline Development** – Built ETL pipelines...             ← Em-dash instead of colon
 - <span class="bullet-label">Summary:</span> text                  ← Don't write HTML!
 - **Summary**:                                                       ← Empty detail (skipped by parser)
+- **数据时效**：报表更新 T+3 → T+1（↑67%）                            ← Arrow symbols + shorthand = AI fingerprint
 ```
+
+**🔴 No arrows in bullet text**: `→`, `↑`, `↓`, `⇒` and parenthetical shorthand like `(↓75%)` are banned in bullet detail text — they read as AI-generated. Write comparisons in natural language: "从 T+3 提前至 T+1" / "cutting monthly close from 48 hours to 12".
 
 ### Complete Draft Structure Template
 
